@@ -1,0 +1,14 @@
+{
+    "name": "outragedns/env-account",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "OUTRAGEdns\\PdnsProxy\\Environment\\Account\\": "src/"
+        }
+    },
+    "require": {
+        "laminas/laminas-db": "^2.12"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
