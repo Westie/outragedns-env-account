@@ -88,11 +88,8 @@ class Acl implements AclInterface
         $select = $this->sql->select()
             ->from('domains')
             ->columns([ 'id' ])
+            ->where([ 'account' => $this->environment->getAccount() ])
             ->where([ 'name' => trim($zoneId, '.') ]);
-
-        if ($this->environment->getAccount()) {
-            $select->where([ 'account' => $this->environment->getAccount() ]);
-        }
 
         return $this->sql->prepareStatementForSqlObject($select)->execute()->count() === 1;
     }

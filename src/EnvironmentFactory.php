@@ -32,74 +32,25 @@ class EnvironmentFactory implements EnvironmentFactoryInterface
      */
     public function createEnvironment(RequestInterface $request): EnvironmentInterface
     {
-        $adapter = $this->getSqlAdapter();
+        $adapter = new Adapter($this->config['db']);
 
-        // create our environment
         $environment = new Environment();
-        $environment->setAccount($this->config['account']);
-        $environment->setApiKey($this->config['api']['key']);
-        $environment->setBaseUrl($this->config['api']['base_url']);
         $environment->setAcl(new Acl($adapter, $environment));
+        $environment->setBaseApiKey($this->config['api']['key']);
+        $environment->setBaseUrl($this->config['api']['base_url']);
 
-        // insert our pipes
-        if ($pipelineProvider = $this->getRequestBodyPipelineProvider($environment)) {
-            $environment->setRequestBodyPipelineProvider($pipelineProvider);
+        if (!empty($this->config['account'])) {
+            $environment->setAccount($this->config['account']);
+        } elseif (!empty($this->config['authenticator'])) {
+            $environment->setAuthenticator($this->config['authenticator']);
         }
-        if ($pipelineProvider = $this->getResponseBodyPipelineProvider($environment)) {
-            $environment->setResponseBodyPipelineProvider($pipelineProvider);
-        }
+
+        $environment->getRequestBodyPipelineProvider()
+            ->add([ 'createZone', 'patchZone', 'putZone' ], new Pipes\CreateZoneFilter($environment));
+
+        $environment->getResponseBodyPipelineProvider()
+            ->add([ 'listZones' ], new Pipes\ListZoneFilter($environment));
 
         return $environment;
-    }
-
-    /**
-     *  Get SQL adapter
-     */
-    private function getSqlAdapter()
-    {
-        return new Adapter($this->config['db']);
-    }
-
-    /**
-     *  Set up request body pipeline provider
-     */
-    private function getRequestBodyPipelineProvider(Environment $environment): PipelineProvider
-    {
-        $pipelineProvider = new PipelineProvider();
-
-        // force all zones to have a corresponding account reference
-        $pipelineProvider->add([ 'createZone', 'patchZone', 'putZone' ], function ($data) use ($environment) {
-            $account = $environment->getAccount();
-            if (!empty($account)) {
-                $data['account'] = $account;
-            }
-            return $data;
-        });
-
-        return $pipelineProvider;
-    }
-
-    /**
-     *  Set up response body pipeline provider
-     */
-    private function getResponseBodyPipelineProvider(Environment $environment): PipelineProvider
-    {
-        $pipelineProvider = new PipelineProvider();
-
-        // hide zones that are not associated with an account
-        $pipelineProvider->add('listZones', function ($data) use ($environment) {
-            $account = $environment->getAccount();
-            if (!empty($account)) {
-                foreach ($data as $key => $row) {
-                    if (!array_key_exists('account', $row) || $row['account'] !== $account) {
-                        unset($data[$key]);
-                    }
-                }
-                $data = array_values($data);
-            }
-            return $data;
-        });
-
-        return $pipelineProvider;
     }
 }
